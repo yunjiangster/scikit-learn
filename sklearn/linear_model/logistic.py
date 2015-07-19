@@ -1003,7 +1003,7 @@ class LogisticRegression(BaseEstimator, LinearClassifierMixin,
         self.multi_class = multi_class
         self.verbose = verbose
 
-    def fit(self, X, y):
+    def fit(self, X, y, omega=None):
         """Fit the model according to the given training data.
 
         Parameters
@@ -1014,6 +1014,11 @@ class LogisticRegression(BaseEstimator, LinearClassifierMixin,
 
         y : array-like, shape (n_samples,)
             Target vector relative to X.
+
+        omega: the weight target in the proximal regularization, as in
+            min_w C F(w) + 1/2 \| w - \omega \|_2^2;
+            omega =0 specializes to L^2 regularization
+            This is needed for local logistic solver in an ADMM framework
 
         Returns
         -------
@@ -1037,10 +1042,12 @@ class LogisticRegression(BaseEstimator, LinearClassifierMixin,
                              self.dual)
 
         if self.solver == 'liblinear':
+
             self.coef_, self.intercept_, self.n_iter_ = _fit_liblinear(
                 X, y, self.C, self.fit_intercept, self.intercept_scaling,
                 self.class_weight, self.penalty, self.dual, self.verbose,
-                self.max_iter, self.tol, self.random_state)
+                self.max_iter, self.tol, self.random_state, omega=omega)
+
             return self
 
         n_classes = len(self.classes_)

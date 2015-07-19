@@ -31,6 +31,7 @@ struct parameter
 	int nr_weight;
 	int *weight_label;
 	double* weight;
+	double* omega;
 	int max_iter;
 	double p;
 };

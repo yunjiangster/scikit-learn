@@ -1244,10 +1244,9 @@ static int solve_l2r_l1l2_svr(
 #define GETI(i) (y[i]+1)
 // To support weights for instances, use GETI(i) (i)
 
-int solve_l2r_lr_dual(const problem *prob, const parameter *param, double *w, double eps, double Cp, double Cn,
+int solve_l2r_lr_dual(const problem *prob, double *w, double eps, double Cp, double Cn,
 					   int max_iter)
 {
-    double *omega = param->omega;   // proximal L^2 weight vector: solving min \sum_i f(w;x_i,y_i) + C \|w - \omega\|_2^2
 	int l = prob->l;
 	int w_size = prob->n;
 	int i, s, iter = 0;
@@ -1255,12 +1254,10 @@ int solve_l2r_lr_dual(const problem *prob, const parameter *param, double *w, do
 	int *index = new int[l];
 	double *alpha = new double[2*l]; // store alpha and C - alpha
 	schar *y = new schar[l];
-
 	int max_inner_iter = 100; // for inner Newton
 	double innereps = 1e-2;
 	double innereps_min = min(1e-8, eps);
 	double upper_bound[3] = {Cn, 0, Cp};
-
 
 	for(i=0; i<l; i++)
 	{
@@ -1282,34 +1279,22 @@ int solve_l2r_lr_dual(const problem *prob, const parameter *param, double *w, do
 		alpha[2*i] = min(0.001*upper_bound[GETI(i)], 1e-8);
 		alpha[2*i+1] = upper_bound[GETI(i)] - alpha[2*i];
 	}
-    if (omega == NULL)
-        for(i=0; i<w_size; i++)
-        {
-            w[i] = 0;
-        }
-	else
-        for(i=0; i<w_size; i++)
-        {
-            w[i] = omega[i];
-        }
 
+	for(i=0; i<w_size; i++)
+		w[i] = 0;
 	for(i=0; i<l; i++)
 	{
 		xTx[i] = 0;
 		feature_node *xi = prob->x[i];
-
-        while (xi->index != -1)
-        {
-            double val = xi->value;
-            xTx[i] += val*val;
-            w[xi->index-1] += y[i]*alpha[2*i]*val;
-
-            xi++;
-        }
-
+		while (xi->index != -1)
+		{
+			double val = xi->value;
+			xTx[i] += val*val;
+			w[xi->index-1] += y[i]*alpha[2*i]*val;
+			xi++;
+		}
 		index[i] = i;
 	}
-
 
 	while (iter < max_iter)
 	{
@@ -1326,16 +1311,12 @@ int solve_l2r_lr_dual(const problem *prob, const parameter *param, double *w, do
 			schar yi = y[i];
 			double C = upper_bound[GETI(i)];
 			double ywTx = 0, xisq = xTx[i];
-
 			feature_node *xi = prob->x[i];
 			while (xi->index != -1)
 			{
 				ywTx += w[xi->index-1]*xi->value;
 				xi++;
 			}
-
-
-
 			ywTx *= y[i];
 			double a = xisq, b = ywTx;
 
@@ -1420,7 +1401,6 @@ int solve_l2r_lr_dual(const problem *prob, const parameter *param, double *w, do
 	delete [] index;
 	return iter;
 }
-
 
 // A coordinate descent algorithm for
 // L1-regularized L2-loss support vector classification
@@ -2272,9 +2252,6 @@ static int train_one(const problem *prob, const parameter *param, double *w, dou
 	double primal_solver_tol = eps*max(min(pos,neg), 1)/prob->l;
 
 	function *fun_obj=NULL;
-
-	//if (param->omega != NULL && param->solver_type != L2R_LR_DUAL) throw; // std::invalid_argument("Proximal target only supported for L2R_LR_DUAL!");
-
 	switch(param->solver_type)
 	{
 		case L2R_LR:
@@ -2297,7 +2274,6 @@ static int train_one(const problem *prob, const parameter *param, double *w, dou
 		}
 		case L2R_L2LOSS_SVC:
 		{
-
 			double *C = new double[prob->l];
 			for(int i = 0; i < prob->l; i++)
 			{
@@ -2315,7 +2291,6 @@ static int train_one(const problem *prob, const parameter *param, double *w, dou
 			break;
 		}
 		case L2R_L2LOSS_SVC_DUAL:
-
 			n_iter=solve_l2r_l1l2_svc(prob, w, eps, Cp, Cn, L2R_L2LOSS_SVC_DUAL, max_iter);
 			break;
 		case L2R_L1LOSS_SVC_DUAL:
@@ -2344,7 +2319,7 @@ static int train_one(const problem *prob, const parameter *param, double *w, dou
 			break;
 		}
 		case L2R_LR_DUAL:
-			n_iter=solve_l2r_lr_dual(prob, param, w, eps, Cp, Cn, max_iter);
+			n_iter=solve_l2r_lr_dual(prob, w, eps, Cp, Cn, max_iter);
 			break;
 		case L2R_L2LOSS_SVR:
 		{
@@ -2448,7 +2423,7 @@ model* train(const problem *prob, const parameter *param)
 			sub_prob.x[k] = x[k];
 
 		// multi-class svm by Crammer and Singer
-		if(param->solver_type == MCSVM_CS && param->omega == NULL)
+		if(param->solver_type == MCSVM_CS)
 		{
 			model_->w=Malloc(double, n*nr_class);
 			model_->n_iter=Malloc(int, 1);
@@ -2470,9 +2445,10 @@ model* train(const problem *prob, const parameter *param)
 					sub_prob.y[k] = -1;
 				for(; k<sub_prob.l; k++)
 					sub_prob.y[k] = +1;
+
 				model_->n_iter[0]=train_one(&sub_prob, param, &model_->w[0], weighted_C[1], weighted_C[0]);
 			}
-			else if(param->omega == NULL)
+			else
 			{
 				model_->w=Malloc(double, w_size*nr_class);
 				double *w=Malloc(double, w_size);
@@ -2962,8 +2938,7 @@ const char *check_parameter(const problem *prob, const parameter *param)
 		&& param->solver_type != L2R_L2LOSS_SVR_DUAL
 		&& param->solver_type != L2R_L1LOSS_SVR_DUAL)
 		return "unknown solver type";
-    if (param->omega != NULL && param->solver_type != L2R_LR_DUAL)
-        return "proximal target only supported for L^2 regularized logistic regression at the moment";
+
 	return NULL;
 }
 
