@@ -91,6 +91,17 @@ Enhancements
    - ``dump_svmlight_file`` now handles multi-label datasets.
      By Chih-Wei Chang.
 
+   - RCV1 dataset loader (:func:`sklearn.datasets.fetch_rcv1`).
+     By `Tom Dupre la Tour`_.
+
+   - Upgraded to joblib 0.9.0b2 to benefit from the new automatic batching of
+     short tasks. This makes it possible for scikit-learn to benefit from
+     parallelism when many very short tasks are executed in parallel, for
+     instance by the :class:`grid_search.GridSearchCV` meta-estimator
+     with ``n_jobs > 1`` used with a large grid of parameters on a small
+     dataset. By `Vlad Niculae`_, `Olivier Grisel`_ and `Loic Esteve`_.
+
+
 Bug fixes
 .........
 
@@ -108,6 +119,9 @@ Bug fixes
 
     - Fixed bug in :class:`linear_model.LogisticRegressionCV` where `penalty` was ignored
       in the final fit. By `Manoj Kumar`_.
+
+    - Fixed bug in :class:`ensemble.forest.ForestClassifier` while computing 
+      oob_score and X is a sparse.csc_matrix. By `Ankur Ankan`_.
 
 API changes summary
 -------------------
@@ -3545,3 +3559,5 @@ David Huard, Dave Morrill, Ed Schofield, Travis Oliphant, Pearu Peterson.
 .. _Sebastian Raschka: http://sebastianraschka.com
 
 .. _Thomas Unterthiner: https://github.com/untom
+
+.. _Loic Esteve: https://github.com/lesteve
